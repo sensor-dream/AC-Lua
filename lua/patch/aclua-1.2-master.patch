@@ -1,0 +1,998 @@
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/entity.h aclua-1.2-master_fix/src/entity.h
+*** aclua-1.2-master_origin/src/entity.h	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/entity.h	2016-12-30 22:29:20.421971669 +0700
+***************
+*** 107,113 ****
+  
+  enum { ENT_PLAYER = 0, ENT_BOT, ENT_CAMERA, ENT_BOUNCE };
+  enum { CS_ALIVE = 0, CS_DEAD, CS_SPAWNING, CS_LAGGED, CS_EDITING, CS_SPECTATE };
+! enum { CR_DEFAULT = 0, CR_ADMIN };
+  enum { SM_NONE = 0, SM_DEATHCAM, SM_FOLLOW1ST, SM_FOLLOW3RD, SM_FOLLOW3RD_TRANSPARENT, SM_FLY, SM_OVERVIEW, SM_NUM };
+  enum { FPCN_VOID = -4, FPCN_DEATHCAM = -2, FPCN_FLY = -2, FPCN_OVERVIEW = -1 };
+  
+--- 107,113 ----
+  
+  enum { ENT_PLAYER = 0, ENT_BOT, ENT_CAMERA, ENT_BOUNCE };
+  enum { CS_ALIVE = 0, CS_DEAD, CS_SPAWNING, CS_LAGGED, CS_EDITING, CS_SPECTATE };
+! enum { CR_DEFAULT = 0, CR_ADMIN, CR_REGISTERED, CR_REFEREE, CR_ROOT };
+  enum { SM_NONE = 0, SM_DEATHCAM, SM_FOLLOW1ST, SM_FOLLOW3RD, SM_FOLLOW3RD_TRANSPARENT, SM_FLY, SM_OVERVIEW, SM_NUM };
+  enum { FPCN_VOID = -4, FPCN_DEATHCAM = -2, FPCN_FLY = -2, FPCN_OVERVIEW = -1 };
+  
+***************
+*** 387,401 ****
+              case 3: ad = (int) (4.0f/25.0f * armour) + 25; break;         // 41
+              default: break;
+          }
+!         
+          //ra - reduced armor
+          //rd - reduced damage
+          int ra = (int) (ad * damage/100.0f);
+          int rd = ra-(ra*(gi.piercing/100.0f)); //Who cares about rounding errors anyways?
+!         
+          armour -= ra;
+          damage -= rd;
+!             
+          health -= damage;
+          return damage;
+      }
+--- 387,401 ----
+              case 3: ad = (int) (4.0f/25.0f * armour) + 25; break;         // 41
+              default: break;
+          }
+! 
+          //ra - reduced armor
+          //rd - reduced damage
+          int ra = (int) (ad * damage/100.0f);
+          int rd = ra-(ra*(gi.piercing/100.0f)); //Who cares about rounding errors anyways?
+! 
+          armour -= ra;
+          damage -= rd;
+! 
+          health -= damage;
+          return damage;
+      }
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/lua.cpp aclua-1.2-master_fix/src/lua.cpp
+*** aclua-1.2-master_origin/src/lua.cpp	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/lua.cpp	2017-01-25 04:55:12.227064556 +0700
+***************
+*** 217,223 ****
+            printf("<Lua> -- Author: %s\n", lua_tostring(L, lua_gettop(L)));
+            lua_getglobal(L, "PLUGIN_VERSION");
+            printf("<Lua> -- Version: %s\n", lua_tostring(L, lua_gettop(L)));
+!           lua_pop(L, 3);
+          }
+        }
+      }
+--- 217,231 ----
+            printf("<Lua> -- Author: %s\n", lua_tostring(L, lua_gettop(L)));
+            lua_getglobal(L, "PLUGIN_VERSION");
+            printf("<Lua> -- Version: %s\n", lua_tostring(L, lua_gettop(L)));
+!           // fix version
+!           lua_getglobal(L, "PLUGIN_SITE");
+!           printf("<Lua> -- Site: %s\n", lua_tostring(L, lua_gettop(L)));
+!           lua_getglobal(L, "PLUGIN_EMAIL");
+!           printf("<Lua> -- Email: %s\n", lua_tostring(L, lua_gettop(L)));
+!           lua_getglobal(L, "PLUGIN_DESCRIPTION");
+!           printf("<Lua> -- Description: %s\n", lua_tostring(L, lua_gettop(L)));
+!           lua_pop(L, 6);
+!           // end fix version
+          }
+        }
+      }
+***************
+*** 226,235 ****
+    printf("<Lua> Framework initialized, %d scripts loaded\n", numberOfScripts);
+  }
+  
+! void Lua::destroy() {
+    printf("<Lua> Destroying framework...\n");
+    if(numberOfScripts) {
+!     callHandler(LUA_ON_DESTROY, "");
+      tmr_free();
+      ALL_SCRIPTS {
+        lua_gc(SCRIPT, LUA_GCCOLLECT, 0);
+--- 234,249 ----
+    printf("<Lua> Framework initialized, %d scripts loaded\n", numberOfScripts);
+  }
+  
+! void Lua::destroy(int cn = -1) {
+    printf("<Lua> Destroying framework...\n");
+    if(numberOfScripts) {
+!     int player_cn = -1;
+!     if (cn != -1) {
+!         if (valid_client(cn)) {
+!           player_cn = cn;
+!         }
+!     }
+!     callHandler(LUA_ON_DESTROY,"i", player_cn);
+      tmr_free();
+      ALL_SCRIPTS {
+        lua_gc(SCRIPT, LUA_GCCOLLECT, 0);
+***************
+*** 275,284 ****
+--- 289,311 ----
+    #define LUA_SET_CONSTANTN(name, constant) lua_pushinteger( L, constant ); lua_setglobal( L, name )
+    #define LUA_SET_CONSTANT(constant) LUA_SET_CONSTANTN(#constant, constant)
+    LUA_SET_CONSTANT(PLUGIN_BLOCK);
++   LUA_SET_CONSTANT(PLUGIN_RELOAD_BLOCK);
++   LUA_SET_CONSTANT(PLUGIN_LOAD_BLOCK);
++   LUA_SET_CONSTANT(PLUGIN_UNLOAD_BLOCK);
++   LUA_SET_CONSTANT(SV_TEXT);
++   LUA_SET_CONSTANT(SV_TEXTME);
++   LUA_SET_CONSTANT(SV_TEAMTEXT);
++   LUA_SET_CONSTANT(SV_TEAMTEXTME);
++   LUA_SET_CONSTANT(SV_TEXTPRIVATE);
+    LUA_SET_CONSTANTN("DAMAGE_MAX", INT_MAX);
+    // client roles
+    LUA_SET_CONSTANT(CR_ADMIN);
+    LUA_SET_CONSTANT(CR_DEFAULT);
++   // fix role
++   LUA_SET_CONSTANT(CR_ROOT);
++   LUA_SET_CONSTANT(CR_REFEREE);
++   LUA_SET_CONSTANT(CR_REGISTERED);
++   // end fix role
+    // client states
+    LUA_SET_CONSTANT(CS_ALIVE);
+    LUA_SET_CONSTANT(CS_DEAD);
+***************
+*** 297,302 ****
+--- 324,330 ----
+    LUA_SET_CONSTANT(GUN_CPISTOL);
+    LUA_SET_CONSTANT(GUN_GRENADE);
+    LUA_SET_CONSTANT(GUN_AKIMBO);
++   LUA_SET_CONSTANT(NUMGUNS);
+    // game modes
+    LUA_SET_CONSTANTN("GM_DEMO", GMODE_DEMO);
+    LUA_SET_CONSTANTN("GM_TDM", GMODE_TEAMDEATHMATCH);
+***************
+*** 334,339 ****
+--- 362,378 ----
+    LUA_SET_CONSTANT(DISC_AFK);
+    LUA_SET_CONSTANT(DISC_FFIRE);
+    LUA_SET_CONSTANT(DISC_CHEAT);
++   // fix ban type
++   LUA_SET_CONSTANT(BAN_NONE);
++   LUA_SET_CONSTANT(BAN_VOTE);
++   LUA_SET_CONSTANT(BAN_AUTO);
++   LUA_SET_CONSTANT(BAN_BLACKLIST);
++   LUA_SET_CONSTANT(BAN_MASTER);
++   LUA_SET_CONSTANT(BAN_REGISTERED);
++   LUA_SET_CONSTANT(BAN_REFEREE);
++   LUA_SET_CONSTANT(BAN_ROOT);
++   LUA_SET_CONSTANT(BAN_ADMIN);
++   // end fix ban type
+    // flag actions
+    LUA_SET_CONSTANT(FA_PICKUP);
+    LUA_SET_CONSTANT(FA_STEAL);
+***************
+*** 370,375 ****
+--- 409,416 ----
+    LUA_SET_CONSTANT(TEAM_CLA_SPECT);
+    LUA_SET_CONSTANT(TEAM_RVSF_SPECT);
+    LUA_SET_CONSTANT(TEAM_SPECT);
++   LUA_SET_CONSTANT(TEAM_NUM);
++   LUA_SET_CONSTANT(TEAM_ANYACTIVE);
+    // entity types
+    LUA_SET_CONSTANT(NOTUSED);
+    LUA_SET_CONSTANT(LIGHT);
+***************
+*** 469,474 ****
+--- 510,520 ----
+  #define LUA_SET_FUNCTION_PREFIX(prefix, function) lua_register( L, #function, prefix##function )
+  #define LUA_SET_FUNCTION(function) LUA_SET_FUNCTION_PREFIX(__, function)
+    LUA_SET_FUNCTION(include);
++   LUA_SET_FUNCTION(usenamelogin);
++   LUA_SET_FUNCTION(flag_getdemo);
++   LUA_SET_FUNCTION(flag_reloadmod);
++   LUA_SET_FUNCTION(reloadmod);
++   LUA_SET_FUNCTION(unloadmod);
+    LUA_SET_FUNCTION(clientprint);
+    LUA_SET_FUNCTION(kill);
+    LUA_SET_FUNCTION(forcedeath);
+***************
+*** 476,485 ****
+--- 522,536 ----
+    LUA_SET_FUNCTION(dodamage);
+    LUA_SET_FUNCTION(isconnected);
+    LUA_SET_FUNCTION(isadmin);
++   LUA_SET_FUNCTION(isroot);
++   LUA_SET_FUNCTION(isreferee);
++   LUA_SET_FUNCTION(isregistered);
+    LUA_SET_FUNCTION(getpriv);
++   LUA_SET_FUNCTION(getmultipriv);
+    LUA_SET_FUNCTION(getstate);
+    LUA_SET_FUNCTION(getname);
+    LUA_SET_FUNCTION(getip);
++   LUA_SET_FUNCTION(getrealip);
+    LUA_SET_FUNCTION(getweapon);
+    LUA_SET_FUNCTION(getpos);
+    LUA_SET_FUNCTION(gethealth);
+***************
+*** 957,962 ****
+--- 1008,1072 ----
+    return 0;
+  }
+  
++ LUA_FUNCTION(usenamelogin) {
++   lua_checkstack(L, 2);
++   if (!lua_isnumber(L, 1)) {
++     lua_pushstring(L,{'\0'});
++     return 1;
++   }
++   int player_cn = (int) lua_tonumber(L, 1);
++   if (!valid_client(player_cn)) {
++     lua_pushstring(L,{'\0'});
++     return 1;
++   }
++   //lua_checkstack(L, 2);
++   if(!lua_isstring(L, 2)) {
++     lua_pushstring(L, clients[player_cn]->use_name_login);
++   } else {
++     copystring(clients[player_cn]->use_name_login, lua_tostring(L, 2));
++     lua_pushstring(L, clients[player_cn]->use_name_login);
++   }
++   return 1;
++ }
++ 
++ // fix download DEMO
++ LUA_FUNCTION(flag_getdemo) {
++   lua_checkstack(L, 1);
++   if(lua_isboolean (L, 1)) LUA_FLAG_GET_DEMO = (bool) lua_toboolean(L, 1);
++   lua_pushboolean (L, LUA_FLAG_GET_DEMO);
++   return 1;
++ }
++ //END fix download DEMO
++ 
++  // fix START reload module
++ LUA_FUNCTION(flag_reloadmod) {
++   lua_checkstack(L, 1);
++   if(lua_isboolean (L, 1)) LUA_FLAG_RELOAD = (bool) lua_toboolean(L, 1);
++   lua_pushboolean (L, LUA_FLAG_RELOAD);
++   return 1;
++ }
++ 
++ LUA_FUNCTION(reloadmod) {
++   lua_checkstack(L, 1);
++   if(!lua_isnumber(L, 1)) return 0;
++    int sender = (int) lua_tonumber(L, 1);
++    if(!valid_client(sender)) return 0;
++    reload_Lua(sender);
++    return 0;
++ }
++ 
++ LUA_FUNCTION(unloadmod) {
++   lua_checkstack(L, 1);
++   if(!lua_isnumber(L, 1)) return 0;
++    int sender = (int) lua_tonumber(L, 1);
++    if(!valid_client(sender)) return 0;
++    unload_Lua(sender);
++    return 0;
++ }
++ 
++ 
++ // END fix reload module
++ 
+  LUA_FUNCTION(clientprint) {
+    lua_checkstack(L, 3);
+    if(!lua_isnumber(L, 1) || !lua_isstring(L, 2)) return 0;
+***************
+*** 1064,1069 ****
+--- 1174,1206 ----
+    return 1;
+  }
+  
++ LUA_FUNCTION(isroot) {
++   lua_checkstack(L, 1);
++   if(!lua_isnumber(L, 1)) return 0;
++   int player_cn = (int) lua_tonumber(L, 1);
++   if(!valid_client(player_cn)) return 0;
++   lua_pushboolean(L, (int)(clients[player_cn]->role == CR_ROOT));
++   return 1;
++ }
++ 
++ LUA_FUNCTION(isreferee) {
++   lua_checkstack(L, 1);
++   if(!lua_isnumber(L, 1)) return 0;
++   int player_cn = (int) lua_tonumber(L, 1);
++   if(!valid_client(player_cn)) return 0;
++   lua_pushboolean(L, (int)(clients[player_cn]->role == CR_REFEREE));
++   return 1;
++ }
++ 
++ LUA_FUNCTION(isregistered) {
++   lua_checkstack(L, 1);
++   if(!lua_isnumber(L, 1)) return 0;
++   int player_cn = (int) lua_tonumber(L, 1);
++   if(!valid_client(player_cn)) return 0;
++   lua_pushboolean(L, (int)(clients[player_cn]->role == CR_REGISTERED));
++   return 1;
++ }
++ 
+  LUA_FUNCTION(getpriv) {
+    lua_checkstack(L, 1);
+    if(!lua_isnumber(L, 1)) return 0;
+***************
+*** 1073,1078 ****
+--- 1210,1224 ----
+    return 1;
+  }
+  
++ LUA_FUNCTION(getmultipriv) {
++   lua_checkstack(L, 1);
++   if(!lua_isnumber(L, 1)) return 0;
++   int player_cn = (int) lua_tonumber(L, 1);
++   if(!valid_client(player_cn)) return 0;
++   lua_pushinteger(L, (int)(clients[player_cn]->multirole));
++   return 1;
++ }
++ 
+  LUA_FUNCTION(getstate) {
+    lua_checkstack(L, 1);
+    if(!lua_isnumber(L, 1)) return 0;
+***************
+*** 1100,1105 ****
+--- 1246,1260 ----
+    return 1;
+  }
+  
++ LUA_FUNCTION(getrealip) {
++   lua_checkstack(L, 1);
++   if(!lua_isnumber(L, 1)) return 0;
++   int player_cn = (int) lua_tonumber(L, 1);
++   if(!valid_client(player_cn)) return 0;
++   lua_pushstring(L, iptoa(clients[player_cn]->peer->address.host));
++   return 1;
++ }
++ 
+  LUA_FUNCTION(getweapon) {
+    lua_checkstack(L, 1);
+    if(!lua_isnumber(L, 1)) return 0;
+***************
+*** 1338,1343 ****
+--- 1493,1499 ----
+    int target_cn = (int) lua_tonumber(L, 1);
+    if(!valid_client(target_cn)) return 0;
+    int role = (int) lua_tonumber(L, 2);
++   clients[target_cn]->multirole = role;
+    if(!(role == CR_ADMIN || role == CR_DEFAULT)) return 0;
+    if(lua_toboolean(L, 3)) {
+      if(role == CR_ADMIN)
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/lua_functions.h aclua-1.2-master_fix/src/lua_functions.h
+*** aclua-1.2-master_origin/src/lua_functions.h	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/lua_functions.h	2017-01-25 01:11:46.324131604 +0700
+***************
+*** 7,12 ****
+--- 7,20 ----
+  static LUA_FUNCTION (rvsf); // (bool alive_only)
+  static LUA_FUNCTION (cla); // (bool alive_only)
+  
++ //start fix
++ static LUA_FUNCTION (usenamelogin); // (int cn string name)
++ static LUA_FUNCTION (flag_getdemo); // (bool flag or empty) return bool
++ static LUA_FUNCTION (flag_reloadmod); // (bool flag or empty) return bool
++ static LUA_FUNCTION (reloadmod); // (int cn)
++ static LUA_FUNCTION (unloadmod); // (int cn)
++ //end fix
++ 
+  //BEGIN client
+  // do
+  static LUA_FUNCTION (giveitem); // (int target_cn, int item_type)
+***************
+*** 22,28 ****
+--- 30,40 ----
+  // if
+  static LUA_FUNCTION (isconnected); // (int player_cn)
+  static LUA_FUNCTION (isadmin); // (int player_cn)
++ static LUA_FUNCTION (isroot); // (int player_cn)
++ static LUA_FUNCTION (isreferee); // (int player_cn)
++ static LUA_FUNCTION (isregistered); // (int player_cn)
+  static LUA_FUNCTION (getpriv); // (int player_cn)
++ static LUA_FUNCTION (getmultipriv); // (int player_cn)
+  static LUA_FUNCTION (isonfloor); // (int player_cn)
+  static LUA_FUNCTION (isonladder); // (int player_cn)
+  static LUA_FUNCTION (isscoping); // (int player_cn)
+***************
+*** 36,41 ****
+--- 48,54 ----
+  static LUA_FUNCTION (getstate); // (int player_cn)
+  static LUA_FUNCTION (getname); // (int player_cn)
+  static LUA_FUNCTION (getip); // (int player_cn)
++ static LUA_FUNCTION (getrealip); // (int player_cn)
+  static LUA_FUNCTION (getweapon); // (int player_cn)
+  static LUA_FUNCTION (getpos); // (int player_cn)
+  static LUA_FUNCTION (gethealth); // (int player_cn)
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/lua_handlers.h aclua-1.2-master_fix/src/lua_handlers.h
+*** aclua-1.2-master_origin/src/lua_handlers.h	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/lua_handlers.h	2017-01-25 05:03:25.902807126 +0700
+***************
+*** 14,20 ****
+  #define LUA_ON_PLAYER_TEAM_CHANGE "onPlayerTeamChange" // (int actor_cn, int new_team, int forceteam_reason)
+  #define LUA_ON_SERVER_PROCESS "onServerProcess" // (int sender_cn, int channel, int type)
+  #define LUA_ON_PLAYER_ITEM_PICKUP "onPlayerItemPickup" // (int actor_cn, int item_type, int item_id)
+! #define LUA_ON_PLAYER_SAY_TEXT "onPlayerSayText" // (int sender_cn, string message, bool team, bool me)
+  #define LUA_ON_EXTENSION "onExtension" // (string extension, int sender_cn, string argument)
+  
+  /// generator since 1.4
+--- 14,20 ----
+  #define LUA_ON_PLAYER_TEAM_CHANGE "onPlayerTeamChange" // (int actor_cn, int new_team, int forceteam_reason)
+  #define LUA_ON_SERVER_PROCESS "onServerProcess" // (int sender_cn, int channel, int type)
+  #define LUA_ON_PLAYER_ITEM_PICKUP "onPlayerItemPickup" // (int actor_cn, int item_type, int item_id)
+! #define LUA_ON_PLAYER_SAY_TEXT "onPlayerSayText" // (int sender_cn, string message, bool team, type = SV_TEXT, SV_TEXTME, SV_TEAMTEXT, SV_TEAMTEXTME, SV_TEXTPRIVATE )
+  #define LUA_ON_EXTENSION "onExtension" // (string extension, int sender_cn, string argument)
+  
+  /// generator since 1.4
+***************
+*** 81,84 ****
+--- 81,89 ----
+  #define LUA_ON_PLAYER_PRECONNECT "onPlayerPreconnect" // (int actor_cn)
+  #define LUA_ON_PLAYER_SWITCH_EDITING "onPlayerSwitchEditing" // (int actor_cn, bool is_editing)
+  
++ // generator since 1.6 LUA_ON_CHK_GBAN | LUA_ON_GET_BAN_TYPE | LUA_ON_CHK_AFK
++ #define LUA_ON_CHK_GBAN "onChkGBan" // (string host)
++ #define LUA_ON_GET_BAN_TYPE "onGetBanType" // (int actor_cn, int host, string host, bool is_connecting)
++ #define LUA_ON_CHK_AFK "onChkAfk" // (string name)
++ 
+  #endif
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/luamod.h aclua-1.2-master_fix/src/luamod.h
+*** aclua-1.2-master_origin/src/luamod.h	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/luamod.h	2017-01-25 04:14:51.566240712 +0700
+***************
+*** 25,31 ****
+      static const double version; // = Server Release Version
+  
+      static void initialize( const char *scriptsPath );
+!     static void destroy();
+  
+      // Full group of methods, implemented in Lua-script API Lua fashion {
+      static void registerGlobals( lua_State *L );
+--- 25,31 ----
+      static const double version; // = Server Release Version
+  
+      static void initialize( const char *scriptsPath );
+!     static void destroy(int cn);
+  
+      // Full group of methods, implemented in Lua-script API Lua fashion {
+      static void registerGlobals( lua_State *L );
+***************
+*** 38,43 ****
+--- 38,46 ----
+      static void* getFakeVariable( const char *generator, int *numberOfReturns, int luaTypeReturned, int argc, const LuaArg *args );
+  
+      static const int PLUGIN_BLOCK = 4;
++     static const int PLUGIN_RELOAD_BLOCK = 41;
++     static const int PLUGIN_LOAD_BLOCK = 40;
++     static const int PLUGIN_UNLOAD_BLOCK = 42;
+  
+      static int numberOfScripts;
+      static lua_State **scripts;
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/protocol.h aclua-1.2-master_fix/src/protocol.h
+*** aclua-1.2-master_origin/src/protocol.h	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/protocol.h	2017-01-05 22:47:02.962891640 +0700
+***************
+*** 70,76 ****
+  #define DVELF 4.0f
+  
+  enum { DISC_NONE = 0, DISC_EOP, DISC_CN, DISC_MKICK, DISC_MBAN, DISC_TAGT, DISC_BANREFUSE, DISC_WRONGPW, DISC_SOPLOGINFAIL, DISC_MAXCLIENTS, DISC_MASTERMODE, DISC_AUTOKICK, DISC_AUTOBAN, DISC_DUP, DISC_BADNICK, DISC_OVERFLOW, DISC_ABUSE, DISC_AFK, DISC_FFIRE, DISC_CHEAT, DISC_NUM };
+! enum { BAN_NONE = 0, BAN_VOTE, BAN_AUTO, BAN_BLACKLIST, BAN_MASTER };
+  
+  #define EXT_ACK                         -1
+  #define EXT_VERSION                     104
+--- 70,76 ----
+  #define DVELF 4.0f
+  
+  enum { DISC_NONE = 0, DISC_EOP, DISC_CN, DISC_MKICK, DISC_MBAN, DISC_TAGT, DISC_BANREFUSE, DISC_WRONGPW, DISC_SOPLOGINFAIL, DISC_MAXCLIENTS, DISC_MASTERMODE, DISC_AUTOKICK, DISC_AUTOBAN, DISC_DUP, DISC_BADNICK, DISC_OVERFLOW, DISC_ABUSE, DISC_AFK, DISC_FFIRE, DISC_CHEAT, DISC_NUM };
+! enum { BAN_NONE = 0, BAN_VOTE, BAN_AUTO, BAN_BLACKLIST, BAN_MASTER, BAN_REGISTERED, BAN_REFEREE, BAN_ROOT, BAN_ADMIN };
+  
+  #define EXT_ACK                         -1
+  #define EXT_VERSION                     104
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/serverchecks.h aclua-1.2-master_fix/src/serverchecks.h
+*** aclua-1.2-master_origin/src/serverchecks.h	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/serverchecks.h	2016-12-30 22:31:11.728474996 +0700
+***************
+*** 518,523 ****
+--- 518,528 ----
+              )
+          {
+              logline(ACLOG_INFO, "[%s] %s %s", c.hostname, c.name, "is afk");
++             int lafk = Lua::callHandler( LUA_ON_CHK_AFK, "s", c.name);
++             if ( lafk != Lua::PLUGIN_BLOCK ) {
++                 logline(ACLOG_INFO, "[%s] %s %s", c.hostname, c.name, "VIP not is afk");
++                 return;
++             }
+              defformatstring(msg)("%s is afk", c.name);
+              sendservmsg(msg);
+              disconnect_client(c.clientnum, DISC_AFK);
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/server.cpp aclua-1.2-master_fix/src/server.cpp
+*** aclua-1.2-master_origin/src/server.cpp	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/server.cpp	2017-01-25 17:07:23.387348399 +0700
+***************
+*** 11,16 ****
+--- 11,21 ----
+  #include "servercontroller.h"
+  #include "serverfiles.h"
+  
++ // start fix
++ bool LUA_FLAG_RELOAD = false;
++ bool LUA_FLAG_GET_DEMO = true;
++ // end fix
++ 
+  #include "luamod.h"
+  
+  static string lua_scripts_path = LUA_SCRIPTS_PATH;
+***************
+*** 79,84 ****
+--- 84,121 ----
+   #include "lanes/src/threading.h"
+  }
+  static MUTEX_T writedemoMutex, sendpacketMutex;
++ 
++ void reload_Lua(int cn)
++ {
++     if ( clients.inrange( cn ) && (clients[cn]->role==CR_ADMIN || clients[cn]->multirole==CR_ROOT) )
++     {
++         LUA_FLAG_RELOAD = true;
++         Lua::destroy(cn);
++         Lua::initialize( lua_scripts_path );
++         //sendservmsg( "\f5(!) \fPLua framework successfully reloaded", sender );
++     }
++ }
++ 
++ void unload_Lua(int cn)
++ {
++     if ( clients.inrange( cn ) && (clients[cn]->role==CR_ADMIN || clients[cn]->multirole==CR_ROOT) )
++     {
++         Lua::destroy(cn);
++         sendf(-1, 1, "ris", SV_SERVMSG, "\f2(\f5!\f2) \fPLua framework successfully unloaded");
++     }
++ }
++ 
++ void load_Lua(int cn)
++ {
++     if ( clients.inrange( cn ) && (clients[cn]->role==CR_ADMIN || clients[cn]->multirole==CR_ROOT) )
++     {
++         LUA_FLAG_RELOAD = true;
++         Lua::destroy(cn);
++         Lua::initialize( lua_scripts_path );
++         sendf(-1, 1, "ris", SV_SERVMSG, "\f2(\f5!\f2) \fPLua framework successfully loaded");
++     }
++ }
++ 
+  /// }
+  
+  bool valid_client(int cn)
+***************
+*** 517,526 ****
+      // %w : timestamp "when"
+      static string dmofn;
+      copystring(dmofn, "");
+!     
+      int cc = 0;
+      int mc = strlen(DEMOFORMAT);
+!     
+      while(cc<mc)
+      {
+          switch(DEMOFORMAT[cc])
+--- 554,564 ----
+      // %w : timestamp "when"
+      static string dmofn;
+      copystring(dmofn, "");
+!     if (!LUA_FLAG_GET_DEMO) return dmofn;
+! 
+      int cc = 0;
+      int mc = strlen(DEMOFORMAT);
+! 
+      while(cc<mc)
+      {
+          switch(DEMOFORMAT[cc])
+***************
+*** 648,654 ****
+  
+  void setupdemorecord()
+  {
+!     if(numlocalclients() || !m_mp(gamemode) || gamemode == GMODE_COOPEDIT) return;
+  
+      defformatstring(demotmppath)("demos/demorecord_%s_%d", scl.ip[0] ? scl.ip : "local", scl.serverport);
+      demotmp = opentempfile(demotmppath, "w+b");
+--- 686,692 ----
+  
+  void setupdemorecord()
+  {
+!     if(numlocalclients() || !m_mp(gamemode) || gamemode == GMODE_COOPEDIT || !LUA_FLAG_GET_DEMO) return;
+  
+      defformatstring(demotmppath)("demos/demorecord_%s_%d", scl.ip[0] ? scl.ip : "local", scl.serverport);
+      demotmp = opentempfile(demotmppath, "w+b");
+***************
+*** 698,703 ****
+--- 736,742 ----
+  
+  void listdemos(int cn)
+  {
++     if (!LUA_FLAG_GET_DEMO) return;
+      packetbuf p(MAXTRANS, ENET_PACKET_FLAG_RELIABLE);
+      putint(p, SV_SENDDEMOLIST);
+      putint(p, demofiles.length());
+***************
+*** 707,712 ****
+--- 746,752 ----
+  
+  static void cleardemos(int n)
+  {
++     if (!LUA_FLAG_GET_DEMO) return;
+      if(!n)
+      {
+          loopv(demofiles) delete[] demofiles[i].data;
+***************
+*** 726,731 ****
+--- 766,772 ----
+  
+  void senddemo(int cn, int num)
+  {
++     if (!LUA_FLAG_GET_DEMO) return;
+      client *cl = cn>=0 ? clients[cn] : NULL;
+      bool is_admin = (cl && cl->role == CR_ADMIN);
+      if(scl.demo_interm && (!interm || totalclients > 2) && !is_admin)
+***************
+*** 768,773 ****
+--- 809,815 ----
+  
+  void enddemoplayback()
+  {
++     if (!LUA_FLAG_GET_DEMO) return;
+      if(!demoplayback) return;
+      delete demoplayback;
+      demoplayback = NULL;
+***************
+*** 782,787 ****
+--- 824,830 ----
+  
+  void setupdemoplayback()
+  {
++     if (!LUA_FLAG_GET_DEMO) return;
+      demoheader hdr;
+      string msg;
+      msg[0] = '\0';
+***************
+*** 822,827 ****
+--- 865,871 ----
+  
+  void readdemo()
+  {
++     if (!LUA_FLAG_GET_DEMO) return;
+      if(!demoplayback) return;
+      while(gamemillis>=nextplayback)
+      {
+***************
+*** 2110,2115 ****
+--- 2154,2161 ----
+  
+  bool checkgban(uint ip)
+  {
++     int lban = Lua::callHandler( LUA_ON_CHK_GBAN, "s", iptoa(ip));
++     if ( lban != Lua::PLUGIN_BLOCK ) return lban;
+      loopv(gbans) if((ip & gbans[i].mask) == gbans[i].ip) return true;
+      return false;
+  }
+***************
+*** 2153,2158 ****
+--- 2199,2206 ----
+      if(!valid_client(cn)) return BAN_NONE;
+      client &c = *clients[cn];
+      if(c.type==ST_LOCAL) return BAN_NONE;
++     int lban = Lua::callHandler( LUA_ON_GET_BAN_TYPE, "issisb", cn, clients[cn]->name, clients[cn]->hostname, c.peer->address.host, iptoa(c.peer->address.host), clients[cn]->connecting );
++     if ( lban != Lua::PLUGIN_BLOCK ) return lban;
+      if(checkgban(c.peer->address.host)) return BAN_MASTER;
+      if(ipblacklist.check(c.peer->address.host)) return BAN_BLACKLIST;
+      loopv(bans)
+***************
+*** 2931,2937 ****
+                  if(*text)
+                  {
+                      //bool canspeech = forbiddenlist.canspeech(text);
+!                     if ( Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT, "isbb", cl->clientnum, text, true, type == SV_TEAMTEXTME ) == Lua::PLUGIN_BLOCK ) break;
+                      bool canspeech = forbiddenlist.canspeech(text, cl->clientnum);
+                      if(!spamdetect(cl, text) && canspeech) // team chat
+                      {
+--- 2979,2985 ----
+                  if(*text)
+                  {
+                      //bool canspeech = forbiddenlist.canspeech(text);
+!                     if ( Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT, "isbi", cl->clientnum, text, true, type ) == Lua::PLUGIN_BLOCK ) break;
+                      bool canspeech = forbiddenlist.canspeech(text, cl->clientnum);
+                      if(!spamdetect(cl, text) && canspeech) // team chat
+                      {
+***************
+*** 2953,2959 ****
+                              kick_abuser(cl->clientnum, cl->badmillis, cl->badspeech, 3);
+                          }
+                      }
+!                     Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT_AFTER, "isbb", cl->clientnum, text, true, type == SV_TEAMTEXTME );
+                  }
+                  break;
+  
+--- 3001,3007 ----
+                              kick_abuser(cl->clientnum, cl->badmillis, cl->badspeech, 3);
+                          }
+                      }
+!                     Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT_AFTER, "isbi", cl->clientnum, text, true, type );
+                  }
+                  break;
+  
+***************
+*** 2966,2972 ****
+                  trimtrailingwhitespace(text);
+                  if(*text)
+                  {
+!                     if ( Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT, "isbb", cl->clientnum, text, false, type == SV_TEXTME ) == Lua::PLUGIN_BLOCK ) break;
+                      bool canspeech = forbiddenlist.canspeech(text, cl->clientnum);
+                      if(!spamdetect(cl, text) && canspeech)
+                      {
+--- 3014,3033 ----
+                  trimtrailingwhitespace(text);
+                  if(*text)
+                  {
+!                     int ret_Lua = Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT, "isbi", cl->clientnum, text, false, type );
+!                     if ( ret_Lua == Lua::PLUGIN_BLOCK) break;
+!                     if ( ret_Lua == Lua::PLUGIN_RELOAD_BLOCK ){
+!                         reload_Lua(cl->clientnum);
+!                         break;
+!                     }
+!                     if ( ret_Lua == Lua::PLUGIN_LOAD_BLOCK ){
+!                         load_Lua(cl->clientnum);
+!                         break;
+!                     }
+!                     if ( ret_Lua == Lua::PLUGIN_UNLOAD_BLOCK ){
+!                         unload_Lua(cl->clientnum);
+!                         break;
+!                     }
+                      bool canspeech = forbiddenlist.canspeech(text, cl->clientnum);
+                      if(!spamdetect(cl, text) && canspeech)
+                      {
+***************
+*** 2997,3002 ****
+--- 3058,3064 ----
+                              kick_abuser(cl->clientnum, cl->badmillis, cl->badspeech, 3);
+                          }
+                      }
++                     Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT_AFTER, "isbi", cl->clientnum, text, true, type );
+                  }
+                  break;
+              }
+***************
+*** 3013,3018 ****
+--- 3075,3081 ----
+  
+                  if(*text)
+                  {
++                     if ( Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT, "isbi", cl->clientnum, text, true, type ) == Lua::PLUGIN_BLOCK ) break;
+                      bool canspeech = forbiddenlist.canspeech(text, cl->clientnum);
+                      if(!spamdetect(cl, text) && canspeech)
+                      {
+***************
+*** 3034,3040 ****
+                              kick_abuser(cl->clientnum, cl->badmillis, cl->badspeech, 3);
+                          }
+                      }
+!                     Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT_AFTER, "isbb", cl->clientnum, text, false, type == SV_TEXTME );
+                  }
+              }
+              break;
+--- 3097,3103 ----
+                              kick_abuser(cl->clientnum, cl->badmillis, cl->badspeech, 3);
+                          }
+                      }
+!                     Lua::callHandler( LUA_ON_PLAYER_SAY_TEXT_AFTER, "isbi", cl->clientnum, text, false, type );
+                  }
+              }
+              break;
+***************
+*** 3805,3810 ****
+--- 3868,3876 ----
+                  int n = getint(p);  // length of data after the specifier
+                  if(n < 0 || n > 50) return;
+  
++                 //logline(ACLOG_INFO, "[%s] %s writes to log: %s", cl->hostname, cl->name, ext);
++                 //sendservmsg("\f1(\f3!\f1) \fPExtensions Process Message (EPM)", sender);
++ 
+                  // sample
+                  if(!strcmp(ext, "driAn::writelog"))
+                  {
+***************
+*** 3816,3822 ****
+                      // note:        There is a 49 character limit. The server will ignore messages with 50+ characters.
+  
+                      getstring(text, p, n);
+!                     if(valid_client(sender) && clients[sender]->role==CR_ADMIN)
+                      {
+                          logline(ACLOG_INFO, "[%s] %s writes to log: %s", cl->hostname, cl->name, text);
+                          sendservmsg("your message has been logged", sender);
+--- 3882,3888 ----
+                      // note:        There is a 49 character limit. The server will ignore messages with 50+ characters.
+  
+                      getstring(text, p, n);
+!                     if(valid_client(sender) && (clients[sender]->role==CR_ADMIN || clients[sender]->multirole==CR_ROOT))
+                      {
+                          logline(ACLOG_INFO, "[%s] %s writes to log: %s", cl->hostname, cl->name, text);
+                          sendservmsg("your message has been logged", sender);
+***************
+*** 3827,3833 ****
+                      // intermediate solution to set the teamsize (will be voteable)
+  
+                      getstring(text, p, n);
+!                     if(valid_client(sender) && clients[sender]->role==CR_ADMIN && mastermode == MM_MATCH)
+                      {
+                          changematchteamsize(atoi(text));
+                          defformatstring(msg)("match team size set to %d", matchteamsize);
+--- 3893,3899 ----
+                      // intermediate solution to set the teamsize (will be voteable)
+  
+                      getstring(text, p, n);
+!                     if(valid_client(sender) && (clients[sender]->role==CR_ADMIN || clients[sender]->multirole==CR_ROOT) && mastermode == MM_MATCH)
+                      {
+                          changematchteamsize(atoi(text));
+                          defformatstring(msg)("match team size set to %d", matchteamsize);
+***************
+*** 3837,3848 ****
+                  else if ( !strcmp( ext, "lua::reload" ) )
+                  {
+                    getstring( text, p, n );
+!                   if ( clients.inrange( sender ) && clients[sender]->role == CR_ADMIN )
+!                   {
+!                     Lua::destroy();
+!                     Lua::initialize( lua_scripts_path );
+!                     sendservmsg( "\f5(!) \fPLua framework successfully reloaded", sender );
+!                   }
+                  }
+                  else if ( !strcmp( ext, "lua::info" ) )
+                  {
+--- 3903,3919 ----
+                  else if ( !strcmp( ext, "lua::reload" ) )
+                  {
+                    getstring( text, p, n );
+!                   reload_Lua(sender);
+!                 }
+!                 else if ( !strcmp( ext, "lua::unload" ) )
+!                 {
+!                   getstring( text, p, n );
+!                   unload_Lua(sender);
+!                 }
+!                 else if ( !strcmp( ext, "lua::load" ) )
+!                 {
+!                   getstring( text, p, n );
+!                   load_Lua(sender);
+                  }
+                  else if ( !strcmp( ext, "lua::info" ) )
+                  {
+***************
+*** 3870,3884 ****
+--- 3941,3958 ----
+              }
+  
+              case -1:
++                 //logline(ACLOG_WARNING, "[%s] %s writes to log: %s", clients[sender]->hostname, clients[sender]->name, '-1');
+                  disconnect_client(sender, DISC_TAGT);
+                  return;
+  
+              case -2:
++                 //logline(ACLOG_WARNING, "[%s] %s writes to log: %s", clients[sender]->hostname, clients[sender]->name, '-2');
+                  disconnect_client(sender, DISC_OVERFLOW);
+                  return;
+  
+              default:
+              {
++                 //logline(ACLOG_WARNING, "[%s] %s writes to log: %s", clients[sender]->hostname, clients[sender]->name, 'default');
+                  int size = msgsizelookup(type);
+                  if(size<=0) { if(sender>=0) disconnect_client(sender, DISC_TAGT); return; }
+                  loopi(size-1) getint(p);
+***************
+*** 4252,4258 ****
+  
+  void cleanupserver()
+  {
+!     Lua::destroy();
+      if(serverhost) { enet_host_destroy(serverhost); serverhost = NULL; }
+      if(svcctrl)
+      {
+--- 4326,4332 ----
+  
+  void cleanupserver()
+  {
+!     Lua::destroy(-1);
+      if(serverhost) { enet_host_destroy(serverhost); serverhost = NULL; }
+      if(svcctrl)
+      {
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/server.h aclua-1.2-master_fix/src/server.h
+*** aclua-1.2-master_origin/src/server.h	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/server.h	2017-01-25 01:25:18.081567455 +0700
+***************
+*** 15,20 ****
+--- 15,25 ----
+  
+  extern int smode, servmillis;
+  
++ // start fix
++ extern bool LUA_FLAG_RELOAD;
++ extern bool LUA_FLAG_GET_DEMO;
++ // end fix
++ 
+  struct shotevent
+  {
+      int type;
+***************
+*** 242,247 ****
+--- 247,254 ----
+      int skin[2];
+      int vote;
+      int role;
++     int multirole;
++     string use_name_login;
+      int connectmillis, lmillis, ldt, spj;
+      int mute, spam, lastvc; // server side voice comm spam control
+      int acversion, acbuildtype;
+***************
+*** 337,342 ****
+--- 344,351 ----
+          messages.setsize(0);
+          isauthed = haswelcome = false;
+          role = CR_DEFAULT;
++         multirole = CR_DEFAULT;
++         use_name_login[0] = '\0';
+          lastvotecall = 0;
+          lastprofileupdate = fastprofileupdates = 0;
+          vote = VOTE_NEUTRAL;
+***************
+*** 356,361 ****
+--- 365,372 ----
+      {
+          type = ST_EMPTY;
+          role = CR_DEFAULT;
++         multirole = CR_DEFAULT;
++         use_name_login[0] = '\0';
+          isauthed = haswelcome = false;
+      }
+  };
+***************
+*** 416,421 ****
+--- 427,439 ----
+  void forcedeath(client *cl);
+  void sendf(int cn, int chan, const char *format, ...);
+  
++ /// Lua mod {
++ void reload_Lua(int cn);
++ void unload_Lua(int cn);
++ void load_Lua(int cn);
++ 
++ /// }
++ 
+  extern bool isdedicated;
+  extern string smapname;
+  extern mapstats smapstats;
+diff -x enet -x config.log -x config.status -x libtool -r -c aclua-1.2-master_origin/src/serverms.cpp aclua-1.2-master_fix/src/serverms.cpp
+*** aclua-1.2-master_origin/src/serverms.cpp	2014-07-01 19:22:00.000000000 +0700
+--- aclua-1.2-master_fix/src/serverms.cpp	2017-01-19 08:57:07.491085379 +0700
+***************
+*** 92,98 ****
+  
+      if(masteraddress[m].host == ENET_HOST_ANY)
+      {
+!         logline(ACLOG_INFO, "looking up %s:%d...", mastername[m].c_str(), masterport[m]);
+          masteraddress[m].port = masterport[m];
+          if(!resolverwait(mastername[m].c_str(), &masteraddress[m])) return ENET_SOCKET_NULL;
+      }
+--- 92,98 ----
+  
+      if(masteraddress[m].host == ENET_HOST_ANY)
+      {
+!         logline(ACLOG_INFO, "looking UP >|< UP %s:%d...", mastername[m].c_str(), masterport[m]);
+          masteraddress[m].port = masterport[m];
+          if(!resolverwait(mastername[m].c_str(), &masteraddress[m])) return ENET_SOCKET_NULL;
+      }
+***************
+*** 228,233 ****
+--- 228,234 ----
+  
+  void serverms(int m, int mode, int numplayers, int minremain, char *smapname, int millis, const ENetAddress &localaddr, int *mnum, int *msend, int *mrec, int *cnum, int *csend, int *crec, int protocol_version)
+  {
++ 
+      flushmasteroutput(m);
+      updatemasterserver(m, millis, localaddr.port);
+  
