@@ -1,0 +1,63 @@
+#!/bin/sh
+# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
+if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
+    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
+fi
+### BEGIN INIT INFO
+# Provides:          ac_vs_server
+# Required-Start:    $all
+# Required-Stop:     $all
+# Default-Start:     2 3 5
+# Default-Stop:      0 1 4 6
+# Short-Description: ac_vs_server initscript
+# Description:       This file should be used to construct scripts to be
+#                    placed in /etc/init.d.  This example start a
+#                    single forking daemon capable of writing a pid
+#                    file.  To get other behavoirs, implemend
+#                    do_start(), do_stop() or other functions to
+#                    override the defaults in /lib/init/init-d-script.
+### END INIT INFO
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DESC="ac_vs_daemon"
+NAME=ac_vs_server
+DAEMON=/home/vahe/AC/VS/bin_unix/native_server
+PIDFILE=/var/run/ac_vs_native_server.pid
+SCRIPTNAME=/etc/init.d/"$NAME"
+EXTRA_OPTS="-PfkbMAsRCDEPw -k2 -y4 -McURD -Z7 -kb720 -LS5 -D2 -c2 -x6770 -f29763 -p\"gemavah\"-n\"\f1|\f9VAH\f1| \fV- VS\""
+
+cd /home/vahe/AC/VS
+
+test -f $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+case "$1" in
+start)  log_daemon_msg "Starting server" "ac_vs_server"
+        start_daemon -p $PIDFILE $DAEMON $EXTRA_OPTS $@ & > /dev/null 2&1
+# > /dev/null 2>&1
+#	start-stop-daemon --start -q --name $NAME -o -c $user -u $user -Sx $DAEMON $EXTRA_OPTS
+        log_end_msg $?
+        ;;
+stop)   log_daemon_msg "Stopping" "ac_vs_server"
+        killproc -p $PIDFILE $DAEMON
+# > /dev/null 2>&1
+	#start-stop-daemon --stop --name $NAME --oknodo --pidfile $PIDFILE
+        RETVAL=$?
+        [ $RETVAL -eq 0 ] #&& [ -e "$PIDFILE" ] && rm -f $PIDFILE
+        log_end_msg $RETVAL
+        ;;
+restart) log_daemon_msg "Restarting server" "ac_vs_server" 
+        $0 stop
+        $0 start
+        ;;
+reload|force-reload) log_daemon_msg "Reloading server" "ac_vs_server"
+        log_end_msg 0
+        ;;
+status)
+        status_of_proc $DAEMON $NAME && exit 0 || exit $?
+        ;;
+*)      log_action_msg "Usage: {start|stop|status|restart|reload|force-reload}"
+        exit 2
+        ;;
+esac
+exit 0

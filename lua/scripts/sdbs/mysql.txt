@@ -1,0 +1,37 @@
+ ALTER TABLE <имя таблицы> AUTO_INCREMENT=0 #обнуление 
+ UPDATE `user` SET `id` = '2' WHERE `user`.`name` = '|VAH|-SDBS';
+ DELETE FROM `user` WHERE `user`.`name` = 'temp';
+ ALTER TABLE `user` ADD `player_name` VARCHAR(255) NOT NULL AFTER `name`;
+ ALTER TABLE `user` CHANGE `use_accaunt` `use_login` VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ 
+ ALTER TABLE `user` ADD `count_login_match` BIGINT NOT NULL DEFAULT '0' AFTER `count_login_vs`;
+ ALTER TABLE `user` DROP `count_login_match`;"
+ 
+ ALTER TABLE `user` CHANGE `checkword` `email` VARCHAR(512) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL; 
+ UPDATE `user` SET `email` = '' WHERE `user`.`name` = '|VAH|-SDBS';
+ UPDATE `user` SET `email` = '';
+ 
+ ALTER TABLE `user` ADD `score_of_maps` INT NOT NULL DEFAULT '0' AFTER `ip`;
+ 
+ ALTER TABLE `user_data_gema` CHANGE `checkword` `email` VARCHAR(512) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ 
+ UPDATE `user` SET `email` = '' WHERE `user`.`name` = '~temporary~';
+ 
+ ALTER TABLE `user` ADD `use_access` TINYINT(4) NOT NULL DEFAULT '0' AFTER `access`;
+ 
+ 
+ALTER TABLE `user` DROP `score_of_maps`;"
+
+DELETE FROM `user_data_gema` WHERE `map` = 'GEMA_means_naderace2' 
+
+DELETE FROM `user_data_gema` WHERE `uuid` = '1b9c36d2-e6a0-4e9a-9d15-0e3bd41c446d'
+DELETE FROM `user_data_gema` WHERE 1
+
+ALTER TABLE `user_data_gema` ADD `use_map_date` TIMESTAMP on update CURRENT_TIMESTAMP() NOT NULL AFTER `time_score_best_old`;
+
+ALTER TABLE `user_data_gema` ADD `use_map_date` TIMESTAMP on update CURRENT_TIMESTAMP() NOT NULL DEFAULT CURRENT_TIMESTAMP() AFTER `time_score_best_old`;
+
+выборака по сортировек мах бкст тиме
+SELECT `uuid`, `map`, `count`, `count_score`, `time_score`, `time_score_old`, `time_score_best`, `use_map_date` FROM `user_data_gema` WHERE `time_score_best` ORDER BY `time_score_best` DESC LIMIT 10
+SELECT `uuid` FROM `user_data_gema` WHERE `time_score_best` ORDER BY `time_score_best` DESC LIMIT 10
+SELECT `uuid`,`count`,`count_score`,`time_score`,`time_score_best` FROM `user_data_gema` WHERE `time_score_best` ORDER BY `time_score_best` DESC LIMIT 10

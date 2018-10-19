@@ -1,0 +1,62 @@
+
+Синтаксис её использования весьма прост:
+
+        chkconfig --list [имя сервиса]
+        chkconfig --add <имя сервиса>
+        chkconfig --del <имя сервиса>
+        chkconfig [--level <уровни>] <имя сервиса> <on|off|reset|resetpriorities>
+
+
+Где  имя сервиса - это имя исполняемого скрипта находящегося в /etc/rc.d/init.d
+
+Однако и тут есть небольшая хитрость, дело в том, что скрипт запуска
+должен иметь специальный формат, например такой:
+
+        #!/bin/sh
+        # chkconfig: - 98 02
+        # description:  Описание процесса
+        # processname: Имя процесса
+
+        # Source function library.
+        if [ -f /etc/init.d/functions ] ; then
+          . /etc/init.d/functions
+        elif [ -f /etc/rc.d/init.d/functions ] ; then
+          . /etc/rc.d/init.d/functions
+        else
+          exit 0
+        fi
+        KIND="Имя_сервиса"
+        start() {
+                echo -n $"Starting $KIND services: "
+                daemon /usr/local/sbin/исполняемый_файл
+                echo
+        }	
+
+        stop() {
+                echo -n $"Shutting down $KIND services: "
+                killproc исполняемый_файл
+                echo
+        }	
+
+        restart() {
+                    echo -n $"Restarting $KIND services: "	
+                       killproc исполняемый_файл
+                   daemon /usr/local/sbin/исполняемый_файл
+                   echo
+        }	
+
+        case "$1" in
+          start)
+                  start
+                ;;
+          stop)
+                  stop
+                ;;
+          restart)
+                  restart
+                ;;
+          *)
+                echo $"Usage: $0 {start|stop|restart}"
+                exit 1
+        esac
+        exit $?

@@ -1,0 +1,427 @@
+struct client                   // server side version of "dynent" type
+{
+    bool connecting; /// Lua mod
+    int type;
+    int clientnum;
+    ENetPeer *peer;
+    string hostname;
+    string name;
+    int team;
+    char lang[3];
+    int ping;
+    int skin[2];
+    int vote;
+    int role;
+    int multirole;
+    int connectmillis, lmillis, ldt, spj;
+    int mute, spam, lastvc; // server side voice comm spam control
+    int acversion, acbuildtype;
+    bool isauthed; // for passworded servers
+    bool haswelcome;
+    bool isonrightmap, loggedwrongmap, freshgame;
+    bool timesync;
+    int overflow;
+    int gameoffset, lastevent, lastvotecall;
+    int lastprofileupdate, fastprofileupdates;
+    int demoflags;
+    clientstate state;
+    vector<gameevent> events;
+    vector<uchar> position, messages;
+    string lastsaytext;
+    int saychars, lastsay, spamcount, badspeech, badmillis;
+    int at3_score, at3_lastforce, eff_score;
+    bool at3_dontmove;
+    int spawnindex;
+    int spawnperm, spawnpermsent;
+    int salt;
+    string pwd;
+    uint authreq; // for AUTH
+    string authname; // for AUTH
+    int mapcollisions, farpickups;
+    enet_uint32 bottomRTT;
+    medals md;
+    bool upspawnp;
+    int lag;
+    vec spawnp;
+    int nvotes;
+    int input, inputmillis;
+    int ffire, wn, f, g, t, y, p;
+    int yb, pb, oy, op, lda, ldda, fam;
+    int nt[10], np, lp, ls, lsm, ld, nd, nlt, lem, led;
+    vec cp[10], dp[10], d0, lv, lt, le;
+    float dda, tr, sda;
+    int ps, ph, tcn, bdt, pws;
+    float pr;
+    int yls, pls, tls;
+    int bs, bt, blg, bp;
+
+    gameevent &addevent()
+    {
+        static gameevent dummy;
+        if(events.length()>100) return dummy;
+        return events.add();
+    }
+
+    void mapchange(bool getmap = false)
+    {
+        state.reset();
+        events.setsize(0);
+        overflow = 0;
+        timesync = false;
+        isonrightmap = m_coop;
+        spawnperm = SP_WRONGMAP;
+        spawnpermsent = servmillis;
+        if(!getmap)
+        {
+            loggedwrongmap = false;
+            freshgame = true;         // permission to spawn at once
+        }
+        lastevent = 0;
+        at3_lastforce = eff_score = 0;
+        mapcollisions = farpickups = 0;
+        md.reset();
+        upspawnp = false;
+        lag = 0;
+        spawnp = vec(-1e10f, -1e10f, -1e10f);
+        lmillis = ldt = spj = 0;
+        ffire = 0;
+        f = g = y = p = t = 0;
+        yb = pb = oy = op = lda = ldda = fam = 0;
+        np = lp = ls = lsm = ld = nd = nlt = lem = led = 0;
+        d0 = lv = lt = le = vec(0,0,0);
+        loopi(10) { cp[i] = dp[i] = vec(0,0,0); nt[i] = 0; }
+        dda = tr = sda = 0;
+        ps = ph = bdt = pws = 0;
+        tcn = -1;
+        pr = 0.0f;
+        yls = pls = tls = 0;
+    }
+
+    void reset()
+    {
+        name[0] = pwd[0] = demoflags = 0;
+        bottomRTT = ping = 9999;
+        team = TEAM_SPECT;
+        state.state = CS_SPECTATE;
+        loopi(2) skin[i] = 0;
+        position.setsize(0);
+        messages.setsize(0);
+        isauthed = haswelcome = false;
+        role = CR_DEFAULT;
+  multirole = CR_DEFAULT;
+        lastvotecall = 0;
+        lastprofileupdate = fastprofileupdates = 0;
+        vote = VOTE_NEUTRAL;
+        lastsaytext[0] = '\0';
+        saychars = 0;
+        spawnindex = -1;
+        authreq = 0; // for AUTH
+        mapchange();
+        freshgame = false;         // don't spawn into running games
+        mute = spam = lastvc = badspeech = badmillis = nvotes = 0;
+        input = inputmillis = 0;
+        wn = -1;
+        bs = bt = blg = bp = 0;
+    }
+
+    void zap()
+    {
+        type = ST_EMPTY;
+        role = CR_DEFAULT;
+  multirole = CR_DEFAULT;
+        isauthed = haswelcome = false;
+    }
+};
+
+struct ban
+{
+    ENetAddress address;
+    int millis, type;
+};
+
+struct _lban
+{
+    ENetAddress address;
+    int type;
+};
+
+typedef struct _ENetHost
+{
+   ENetSocket           socket;
+   ENetAddress          address;                     /**< Internet address of the host */
+   enet_uint32          incomingBandwidth;           /**< downstream bandwidth of the host */
+   enet_uint32          outgoingBandwidth;           /**< upstream bandwidth of the host */
+   enet_uint32          bandwidthThrottleEpoch;
+   enet_uint32          mtu;
+   enet_uint32          randomSeed;
+   int                  recalculateBandwidthLimits;
+   ENetPeer *           peers;                       /**< array of peers allocated for this host */
+   size_t               peerCount;                   /**< number of peers allocated for this host */
+   size_t               channelLimit;                /**< maximum number of channels allowed for connected peers */
+   enet_uint32          serviceTime;
+   ENetList             dispatchQueue;
+   int                  continueSending;
+   size_t               packetSize;
+   enet_uint16          headerFlags;
+   ENetProtocol         commands [ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
+   size_t               commandCount;
+   ENetBuffer           buffers [ENET_BUFFER_MAXIMUM];
+   size_t               bufferCount;
+   ENetChecksumCallback checksum;                    /**< callback the user can set to enable packet checksums for this host */
+   ENetCompressor       compressor;
+   enet_uint8           packetData [2][ENET_PROTOCOL_MAXIMUM_MTU];
+   ENetAddress          receivedAddress;
+   enet_uint8 *         receivedData;
+   size_t               receivedDataLength;
+   enet_uint32          totalSentData;               /**< total data sent, user should reset to 0 as needed to prevent overflow */
+   enet_uint32          totalSentPackets;            /**< total UDP packets sent, user should reset to 0 as needed to prevent overflow */
+   enet_uint32          totalReceivedData;           /**< total data received, user should reset to 0 as needed to prevent overflow */
+   enet_uint32          totalReceivedPackets;        /**< total UDP packets received, user should reset to 0 as needed to prevent overflow */
+   ENetInterceptCallback intercept;                  /**< callback the user can set to intercept received raw UDP packets */
+} ENetHost;
+
+#define MAXTRANS 5000
+
+struct packetbuf : ucharbuf
+{
+    ENetPacket *packet;
+    int growth;
+
+    packetbuf(ENetPacket *packet) : ucharbuf(packet->data, packet->dataLength), packet(packet), growth(0) {}
+    packetbuf(int growth, int pflags = 0) : growth(growth)
+    {
+        packet = enet_packet_create(NULL, growth, pflags);
+        buf = (uchar *)packet->data;
+        maxlen = packet->dataLength;
+    }
+    ~packetbuf() { cleanup(); }
+
+    void reliable() { packet->flags |= ENET_PACKET_FLAG_RELIABLE; }
+
+    void resize(int n)
+    {
+        enet_packet_resize(packet, n);
+        buf = (uchar *)packet->data;
+        maxlen = packet->dataLength;
+    }
+
+    void checkspace(int n)
+    {
+        if(len + n > maxlen && packet && growth > 0) resize(max(len + n, maxlen + growth));
+    }
+
+    ucharbuf subbuf(int sz)
+    {
+        checkspace(sz);
+        return ucharbuf::subbuf(sz);
+    }
+
+    void put(const uchar &val)
+    {
+        checkspace(1);
+        ucharbuf::put(val);
+    }
+
+    void put(const uchar *vals, int numvals)
+    {
+        checkspace(numvals);
+        ucharbuf::put(vals, numvals);
+    }
+
+    bool overwrote() const { return false; }
+
+    ENetPacket *finalize()
+    {
+        resize(len);
+        return packet;
+    }
+
+    void cleanup()
+    {
+        if(growth > 0 && packet && !packet->referenceCount) { enet_packet_destroy(packet); packet = NULL; buf = NULL; len = maxlen = 0; }
+    }
+};
+
+
+    //packetbuf p(MAXTRANS, ENET_PACKET_FLAG_RELIABLE);
+    //putint(p, SV_SERVMSG);
+    //putint(p, SV_EXTENSION);
+    //sendstring("lua::reload", p);
+    //putint(p, sender);
+    //ENetPacket *packet = p.finalize();
+    //process(packet, -1, 1);
+    //static MUTEX_T sendpacketMutex;
+    //    MUTEX_LOCK( &sendpacketMutex );
+    //    recordpacket(1, packet->data, (int)packet->dataLength);
+    //    sendpacket(sender, 1, packet, -1,  true);
+    //    MUTEX_UNLOCK( &sendpacketMutex );
+    //recordpacket(1, packet,(int)packet->dataLength);
+    //sendpacket(-1, 1, packet,0,true);
+    //localservertoclient(1, packet->data, (int)packet->dataLength, false);
+    //process(packet, sender, 1);
+
+ /*   ENetPacket *packet = enet_packet_create(NULL, len, 0);
+    sendpacket(-1, chan, packet, -1, true);
+    enet_packet_flush(packet);
+    enet_packet_destroy(packet);
+    process(packet, 0, chan);
+    //process(event.packet, cn, event.channelID);
+
+    packetbuf p(MAXTRANS, ENET_PACKET_FLAG_RELIABLE);
+    putint(p, SV_EXTENSION);
+    putint(p, sender);
+    sendstring(text, p);
+    ENetPacket *packet = p.finalize();
+    recordpacket(1, packet);
+    int &st = clients[sender]->team;
+    loopv(clients) if(i!=sender)
+    {
+        int &rt = clients[i]->team;
+        if((rt == TEAM_SPECT && clients[i]->role == CR_ADMIN) ||  // spect-admin reads all
+           (team_isactive(st) && st == team_group(rt)) ||         // player to own team + own spects
+           (team_isspect(st) && team_isspect(rt)))                // spectator to other spectators
+            sendpacket(i, 1, packet);
+    }
+    */
+
+void sendf(int cn, int chan, const char *format, ...)
+{
+    int exclude = -1;
+    bool reliable = false;
+    if(*format=='r') { reliable = true; ++format; }
+    packetbuf p(MAXTRANS, reliable ? ENET_PACKET_FLAG_RELIABLE : 0);
+    va_list args;
+    va_start(args, format);
+    while(*format) switch(*format++)
+    {
+        case 'x':
+            exclude = va_arg(args, int);
+            break;
+
+        case 'v':
+        {
+            int n = va_arg(args, int);
+            int *v = va_arg(args, int *);
+            loopi(n) putint(p, v[i]);
+            break;
+        }
+
+        case 'i':
+        {
+            int n = isdigit(*format) ? *format++-'0' : 1;
+            loopi(n) putint(p, va_arg(args, int));
+            break;
+        }
+        case 's': sendstring(va_arg(args, const char *), p); break;
+        case 'm':
+        {
+            int n = va_arg(args, int);
+            p.put(va_arg(args, uchar *), n);
+            break;
+        }
+    }
+    va_end(args);
+    sendpacket(cn, chan, p.finalize(), exclude);
+}
+
+vector<uchar> messages;
+void addmsg(int type, const char *fmt, ...)
+{
+    static uchar buf[MAXTRANS];
+    ucharbuf p(buf, MAXTRANS);
+    putint(p, type);
+    int numi = 1, nums = 0;
+    bool reliable = false;
+    if(fmt)
+    {
+        va_list args;
+        va_start(args, fmt);
+        while(*fmt) switch(*fmt++)
+        {
+            case 'r': reliable = true; break;
+            case 'v':
+            {
+                int n = va_arg(args, int);
+                int *v = va_arg(args, int *);
+                loopi(n) putint(p, v[i]);
+                numi += n;
+                break;
+            }
+
+            case 'i':
+            {
+                int n = isdigit(*fmt) ? *fmt++-'0' : 1;
+                loopi(n) putint(p, va_arg(args, int));
+                numi += n;
+                break;
+            }
+            case 'a':
+            {
+                int n = isdigit(*fmt) ? *fmt++-'0' : 1;
+                loopi(n) putaint(p, va_arg(args, int));
+                numi += n;
+                break;
+            }
+            case 's':
+            {
+                const char *t = va_arg(args, const char *);
+                if(t) sendstring(t, p); nums++; break;
+            }
+        }
+        va_end(args);
+    }
+    int num = nums?0:numi, msgsize = msgsizelookup(type);
+    if(msgsize && num!=msgsize) { fatal("inconsistent msg size for %d (%d != %d)", type, num, msgsize); }
+    int len = p.length();
+    messages.add(len&0xFF);
+    messages.add((len>>8)|(reliable ? 0x80 : 0));
+    loopi(len) messages.add(buf[i]);
+}
+
+void callvotepacket (int cn, voteinfo *v = curvote)
+{ // FIXME, it would be far smart if the msg buffer from SV_CALLVOTE was simply saved
+    int n_yes = 0, n_no = 0;
+    loopv(clients) if(clients[i]->type!=ST_EMPTY)
+    {
+        if ( clients[i]->vote == VOTE_YES ) n_yes++;
+        else if ( clients[i]->vote == VOTE_NO ) n_no++;
+    }
+
+    packetbuf q(MAXTRANS, ENET_PACKET_FLAG_RELIABLE);
+    putint(q, SV_CALLVOTE);
+    putint(q, -1);
+    putint(q, v->owner);
+    putint(q, n_yes);
+    putint(q, n_no);
+    putint(q, v->type);
+    switch(v->type)
+    {
+        case SA_KICK:
+        case SA_BAN:
+            putint(q, v->num1);
+            sendstring(v->text, q);
+            break;
+        case SA_MAP:
+            sendstring(v->text, q);
+            putint(q, v->num1);
+            putint(q, v->num2);
+            break;
+        case SA_SERVERDESC:
+            sendstring(v->text, q);
+            break;
+        case SA_STOPDEMO:
+            // compatibility
+            break;
+        case SA_REMBANS:
+        case SA_SHUFFLETEAMS:
+            break;
+        case SA_FORCETEAM:
+            putint(q, v->num1);
+            putint(q, v->num2);
+            break;
+        default:
+            putint(q, v->num1);
+            break;
+    }
+    sendpacket(cn, 1, q.finalize());
+}
